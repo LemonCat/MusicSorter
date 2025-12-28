@@ -3,10 +3,93 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:MusicSorter"
+        xmlns:vm="clr-namespace:MusicSorter.ViewModels"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="MusicSorter" Height="720" Width="1200">
 
-    </Grid>
+    <Window.DataContext>
+        <vm:MainViewModel/>
+    </Window.DataContext>
+
+    <DockPanel Margin="10">
+
+        <StackPanel DockPanel.Dock="Top" Orientation="Vertical" Margin="0,0,0,8">
+
+            <!-- Source -->
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0" Text="Source :" />
+                <TextBox Grid.Column="1" Margin="0,0,8,0"
+                         Text="{Binding SourceFolder, UpdateSourceTrigger=PropertyChanged}" TextChanged="TextBox_TextChanged" />
+                <Button Grid.Column="2" Width="110" Content="Parcourir…"
+                        Click="BrowseSource_Click"/>
+            </Grid>
+
+            <!-- Cible -->
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0" Text="Cible :" />
+                <TextBox Grid.Column="1" Margin="10,0,8,0"
+                         Text="{Binding TargetFolder, UpdateSourceTrigger=PropertyChanged}" />
+                <Button Grid.Column="2" Width="110" Content="Parcourir…"
+                        Click="BrowseTarget_Click"/>
+            </Grid>
+
+            <!-- Actions -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <Button Content="Scanner" Width="110" Margin="0,0,8,0"
+                        Command="{Binding ScanCommand}" />
+                <Button Content="Appliquer" Width="110" Margin="0,0,8,0"
+                        Command="{Binding ApplyCommand}" />
+                <Button Content="Stop" Width="110" Margin="0,0,8,0"
+                        Command="{Binding StopCommand}" />
+
+                <CheckBox Content="Déplacer (sinon copier)"
+                          VerticalAlignment="Center"
+                          IsChecked="{Binding MoveFiles}"
+                          Margin="14,0,0,0"/>
+            </StackPanel>
+
+            <TextBlock Text="{Binding Summary}" FontWeight="SemiBold" />
+            <TextBlock Text="Double-clic sur une ligne : ouvre l'Explorateur sur la cible (ou la source)." Opacity="0.7"/>
+        </StackPanel>
+
+        <!-- Log -->
+        <DataGrid ItemsSource="{Binding Rows}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  CanUserAddRows="False"
+                  EnableRowVirtualization="True"
+                  EnableColumnVirtualization="True"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="None"
+                  MouseDoubleClick="LogGrid_MouseDoubleClick">
+
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="170"/>
+                <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="90"/>
+                <DataGridTextColumn Header="PB" Binding="{Binding PbReason}" Width="260"/>
+                <DataGridTextColumn Header="Artist" Binding="{Binding Artist}" Width="180"/>
+                <DataGridTextColumn Header="Album" Binding="{Binding Album}" Width="220"/>
+                <DataGridTextColumn Header="#" Binding="{Binding Track}" Width="50"/>
+                <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="260"/>
+                <DataGridTextColumn Header="SourcePath" Binding="{Binding SourcePath}" Width="*"/>
+                <DataGridTextColumn Header="TargetPath" Binding="{Binding TargetPath}" Width="*"/>
+                <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="320"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+    </DockPanel>
 </Window>
