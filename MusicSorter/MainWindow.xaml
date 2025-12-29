@@ -57,6 +57,7 @@
                 <CheckBox Content="Déplacer (sinon copier)"
                           VerticalAlignment="Center"
                           IsChecked="{Binding MoveFiles}"
+                          IsEnabled="{Binding MoveAllowed}"
                           Margin="14,0,0,0"/>
             </StackPanel>
 
@@ -77,6 +78,13 @@
                   GridLinesVisibility="None"
                   MouseDoubleClick="LogGrid_MouseDoubleClick">
 
+            <!-- RowStyle ajouté pour gérer le clic simple sur une ligne -->
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <EventSetter Event="MouseLeftButtonUp" Handler="DataGridRow_MouseLeftButtonUp"/>
+                </Style>
+            </DataGrid.RowStyle>
+
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="170"/>
                 <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="90"/>
@@ -85,6 +93,8 @@
                 <DataGridTextColumn Header="Album" Binding="{Binding Album}" Width="220"/>
                 <DataGridTextColumn Header="#" Binding="{Binding Track}" Width="50"/>
                 <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="260"/>
+                <!-- NOUVEAU : colonne FileName (nom du fichier) -->
+                <DataGridTextColumn Header="File" Binding="{Binding FileName}" Width="220"/>
                 <DataGridTextColumn Header="SourcePath" Binding="{Binding SourcePath}" Width="*"/>
                 <DataGridTextColumn Header="TargetPath" Binding="{Binding TargetPath}" Width="*"/>
                 <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="320"/>

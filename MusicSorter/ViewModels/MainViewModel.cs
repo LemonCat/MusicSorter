@@ -8,6 +8,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using System.Collections.Generic;
+using System.Collections.Specialized;
 
 namespace MusicSorter.ViewModels
 {
@@ -35,6 +37,7 @@ namespace MusicSorter.ViewModels
         private string _message = "";
         private DateTime _timestamp = DateTime.Now;
         private string? _pbReason;
+        private string? _fileName; // ajouté
 
         public string SourcePath { get; init; } = "";
         public string? TargetPath { get => _targetPath; set { _targetPath = value; OnPropertyChanged(); } }
@@ -58,7 +61,12 @@ namespace MusicSorter.ViewModels
         public string? PbReason { get => _pbReason; set { _pbReason = value; OnPropertyChanged(); } }
 
         /// <summary>
-        /// Pour une ligne "dossier PROBLÈME" : lignes "filename\t<contenu pb.txt>".
+        /// NOM DU FICHIER SOURCE demandé : FileName
+        /// </summary>
+        public string? FileName { get => _fileName; set { _fileName = value; OnPropertyChanged(); } } // ajouté
+
+        /// <summary>
+        /// Pour une ligne "dossier PROBLÈME" : lignes "filename\t&lt;contenu pb.txt&gt;".
         /// </summary>
         public string? ProblemItems { get; set; }
 
@@ -78,7 +86,7 @@ namespace MusicSorter.ViewModels
             _execute = execute;
             _canExecute = canExecute;
         }
-
+            
         public bool CanExecute(object? parameter) => !_isExecuting && (_canExecute?.Invoke() ?? true);
 
         public async void Execute(object? parameter)
@@ -126,6 +134,10 @@ namespace MusicSorter.ViewModels
         private CancellationTokenSource? _cts;
         private bool _isBusy;
 
+        // Nouveau : contrôle de l'autorisation de "déplacer"
+        private bool _moveAllowed = true;
+        private readonly HashSet<LogRow> _trackedRows = new();
+
         public ObservableCollection<LogRow> Rows { get; } = new();
 
         public string SourceFolder
@@ -144,7 +156,25 @@ namespace MusicSorter.ViewModels
         public bool MoveFiles
         {
             get => _moveFiles;
-            set { _moveFiles = value; OnPropertyChanged(); UpdateCommandStates(); }
+            set
+            {
+                // Empêche l'activation si le déplacement n'est pas autorisé
+                if (value && !MoveAllowed) return;
+                _moveFiles = value;
+                OnPropertyChanged();
+                UpdateCommandStates();
+            }
+        }
+
+        public bool MoveAllowed
+        {
+            get => _moveAllowed;
+            private set
+            {
+                if (_moveAllowed == value) return;
+                _moveAllowed = value;
+                OnPropertyChanged();
+            }
         }
 
         public string Summary
@@ -176,6 +206,58 @@ namespace MusicSorter.ViewModels
             ScanCommand = _scanCmd;
             ApplyCommand = _applyCmd;
             StopCommand = _stopCmd;
+
+            // Suivre les changements de collection / lignes pour recalculer l'autorisation de "déplacer"
+            Rows.CollectionChanged += Rows_CollectionChanged;
+            ReevaluateMoveAllowed();
+        }
+
+        private void Rows_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.OldItems != null)
+            {
+                foreach (LogRow? old in e.OldItems.OfType<LogRow>()) DetachRow(old);
+            }
+
+            if (e.NewItems != null)
+            {
+                foreach (LogRow? nw in e.NewItems.OfType<LogRow>()) AttachRow(nw);
+            }
+
+            if (e.Action == NotifyCollectionChangedAction.Reset)
+            {
+                foreach (var r in _trackedRows.ToList()) DetachRow(r);
+            }
+
+            ReevaluateMoveAllowed();
+        }
+
+        private void AttachRow(LogRow? r)
+        {
+            if (r == null || _trackedRows.Contains(r)) return;
+            r.PropertyChanged += Row_PropertyChanged;
+            _trackedRows.Add(r);
+        }
+
+        private void DetachRow(LogRow? r)
+        {
+            if (r == null) return;
+            if (_trackedRows.Remove(r))
+                r.PropertyChanged -= Row_PropertyChanged;
+        }
+
+        private void Row_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(LogRow.Status) || e.PropertyName == nameof(LogRow.PbReason))
+                ReevaluateMoveAllowed();
+        }
+
+        private void ReevaluateMoveAllowed()
+        {
+            var allowed = !_trackedRows.Any(r => r.Status == RowStatus.PlannedProblemFolder || !string.IsNullOrWhiteSpace(r.PbReason));
+            // Si l'autorisation change et devient false, désactive immédiatement MoveFiles
+            if (!allowed && MoveFiles) MoveFiles = false;
+            MoveAllowed = allowed;
         }
 
         private void UpdateCommandStates()
@@ -185,10 +267,10 @@ namespace MusicSorter.ViewModels
             _stopCmd.RaiseCanExecuteChanged();
         }
 
+        // Scan autorisé même si TargetFolder non renseigné
         private bool CanScan()
             => !IsBusy
-               && Directory.Exists(SourceFolder)
-               && Directory.Exists(TargetFolder);
+               && Directory.Exists(SourceFolder);
 
         private bool CanApply()
             => !IsBusy
@@ -300,6 +382,7 @@ namespace MusicSorter.ViewModels
                     var row = new LogRow
                     {
                         SourcePath = audioPath,
+                        FileName = Path.GetFileName(audioPath), // ajouté
                         Status = RowStatus.Pending,
                         Action = FileAction.None,
                         Timestamp = DateTime.Now
@@ -429,6 +512,7 @@ namespace MusicSorter.ViewModels
                     var folderRow = new LogRow
                     {
                         SourcePath = srcDir,       // dossier
+                        FileName = new DirectoryInfo(srcDir).Name, // ajouté : nom du dossier
                         TargetPath = targetDir,    // dossier
                         Status = RowStatus.PlannedProblemFolder,
                         Action = MoveFiles ? FileAction.Move : FileAction.Copy,
@@ -460,6 +544,7 @@ namespace MusicSorter.ViewModels
                     normalRows.Add(new LogRow
                     {
                         SourcePath = file,
+                        FileName = Path.GetFileName(file), // ajouté
                         TargetPath = Path.Combine(targetAlbumDir, Path.GetFileName(file)),
                         Status = RowStatus.OkPlanned,
                         Action = MoveFiles ? FileAction.Move : FileAction.Copy,
@@ -725,6 +810,19 @@ namespace MusicSorter.ViewModels
             }
         }
 
+        // -------------------------
+        // Char handling: remove listed chars quietly, fail on the rest
+        // -------------------------
+
+        // Liste des caractères à supprimer silencieusement (utilisateur demandé)
+        private static readonly char[] RemovableFileNameChars = new[] { '<', '>', ':', '"', '/', '\\', '|', '?', '*' };
+
+        private static bool ContainsOtherInvalidChars(string s)
+        {
+            var invalid = Path.GetInvalidFileNameChars();
+            return s.Any(ch => invalid.Contains(ch) && !RemovableFileNameChars.Contains(ch));
+        }
+
         private static string SanitizeWithReason(string input, out string? reason)
         {
             reason = null;
@@ -735,13 +833,20 @@ namespace MusicSorter.ViewModels
                 return "Unknown";
             }
 
-            var invalid = Path.GetInvalidFileNameChars();
-            var hadInvalid = input.Any(ch => invalid.Contains(ch));
+            // 1) Supprimer silencieusement les caractères listés par l'utilisateur
+            var withoutRemovables = new string(input.Where(ch => !RemovableFileNameChars.Contains(ch)).ToArray()).Trim();
 
-            var cleaned = new string(input.Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray()).Trim();
-
-            if (hadInvalid)
+            // 2) Si après suppression il reste des caractères réellement invalides -> erreur
+            if (ContainsOtherInvalidChars(withoutRemovables))
+            {
                 reason = "INVALID_CHARS";
+                // Retourner la chaîne nettoyée (même si on signale l'erreur) pour que le code appelant puisse l'afficher/consigner.
+                var cleanedPartial = new string(withoutRemovables.Select(ch => Path.GetInvalidFileNameChars().Contains(ch) ? '_' : ch).ToArray()).Trim();
+                return string.IsNullOrWhiteSpace(cleanedPartial) ? "Unknown" : cleanedPartial;
+            }
+
+            // 3) Normalisation restante: enlever espaces en tête/queue
+            var cleaned = withoutRemovables.Trim();
 
             if (string.IsNullOrWhiteSpace(cleaned))
             {
@@ -764,8 +869,12 @@ namespace MusicSorter.ViewModels
 
         private static string Sanitize(string input)
         {
+            // Méthode de secours utilisée pour dériver un nom de dossier à partir d'un dossier source existant.
+            // On supprime ici silencieusement les caractères listés par l'utilisateur et remplace
+            // les autres caractères invalides par '_' (usage interne).
+            var withoutRemovables = new string(input.Where(ch => !RemovableFileNameChars.Contains(ch)).ToArray());
             var invalid = Path.GetInvalidFileNameChars();
-            var cleaned = new string(input.Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray()).Trim();
+            var cleaned = new string(withoutRemovables.Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray()).Trim();
             return string.IsNullOrWhiteSpace(cleaned) ? "Unknown" : cleaned;
         }
 
@@ -970,6 +1079,16 @@ namespace MusicSorter.ViewModels
             int failed = Rows.Count(r => r.Status == RowStatus.FailedApply);
 
             return $"{prefix} — Total: {total} | OK: {ok} | Dossiers PROBLÈME: {pbFolders} | Done: {done} | Failed: {failed}";
+        }
+
+        // Ajoutez ces membres privés dans la classe MainViewModel (au début de la classe)
+        private static readonly char[] AppAllowedFileNameChars = Array.Empty<char>(); // personnalisez si nécessaire
+        private static char[] GetEffectiveInvalidFileNameChars()
+        {
+            var defaultInvalid = Path.GetInvalidFileNameChars();
+            if (AppAllowedFileNameChars == null || AppAllowedFileNameChars.Length == 0)
+                return defaultInvalid;
+            return defaultInvalid.Except(AppAllowedFileNameChars).ToArray();
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

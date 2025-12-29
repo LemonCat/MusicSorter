@@ -1,4 +1,5 @@
 ﻿using MusicSorter.ViewModels;
+using MusicSorter.Models;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -46,46 +47,60 @@ namespace MusicSorter
         private void LogGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (sender is not DataGrid grid) return;
-            if (grid.SelectedItem is not LogRow row) return;
-
-            var target = row.TargetPath;
-            var source = row.SourcePath;
+            // Le DataGrid est lié à ViewModels.LogRow, pas Models.LogRow.
+            if (grid.SelectedItem is not MusicSorter.ViewModels.LogRow row) return;
 
             try
             {
                 // Priorité cible
-                if (!string.IsNullOrWhiteSpace(target))
+                if (!string.IsNullOrWhiteSpace(row.TargetPath))
                 {
-                    if (Directory.Exists(target))
+                    // Si TargetPath est un dossier, ouvrir le dossier
+                    if (Directory.Exists(row.TargetPath))
                     {
-                        OpenExplorer(target, null);
+                        OpenExplorer(row.TargetPath, null);
                         return;
                     }
 
-                    var targetDir = Path.GetDirectoryName(target);
+                    // Sinon tenter d'obtenir le dossier parent
+                    var targetDir = Path.GetDirectoryName(row.TargetPath);
                     if (!string.IsNullOrWhiteSpace(targetDir) && Directory.Exists(targetDir))
                     {
-                        if (File.Exists(target))
+                        // Si le fichier cible existe, l'ouvrir en le sélectionnant
+                        if (File.Exists(row.TargetPath))
                         {
-                            OpenExplorer(targetDir, target); // select file
+                            OpenExplorer(targetDir, row.TargetPath); // select file
                             return;
                         }
 
+                        // Si le fichier n'existe pas mais qu'on connaît le nom attendu, demander la sélection du nom dans le dossier
+                        var expectedFileName = Path.GetFileName(row.TargetPath);
+                        if (!string.IsNullOrWhiteSpace(expectedFileName))
+                        {
+                            var candidate = Path.Combine(targetDir, expectedFileName);
+                            OpenExplorer(targetDir, candidate); // tentera la sélection (selon comportement de l'explorer)
+                            return;
+                        }
+
+                        // Sinon ouvrir simplement le dossier parent
                         OpenExplorer(targetDir, null);
                         return;
                     }
                 }
 
                 // Fallback source
-                if (File.Exists(source))
+                if (!string.IsNullOrWhiteSpace(row.SourcePath))
                 {
-                    var dir = Path.GetDirectoryName(source);
-                    if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
-                        OpenExplorer(dir, source);
-                }
-                else if (Directory.Exists(source))
-                {
-                    OpenExplorer(source, null);
+                    if (File.Exists(row.SourcePath))
+                    {
+                        var dir = Path.GetDirectoryName(row.SourcePath);
+                        if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                            OpenExplorer(dir, row.SourcePath);
+                    }
+                    else if (Directory.Exists(row.SourcePath))
+                    {
+                        OpenExplorer(row.SourcePath, null);
+                    }
                 }
             }
             catch
@@ -96,8 +111,9 @@ namespace MusicSorter
 
         private static void OpenExplorer(string folder, string? selectFile)
         {
-            if (!string.IsNullOrWhiteSpace(selectFile) && File.Exists(selectFile))
+            if (!string.IsNullOrWhiteSpace(selectFile))
             {
+                // Use /select,"path" to ask Explorer to select the item
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = "explorer.exe",
@@ -119,6 +135,14 @@ namespace MusicSorter
         private void TextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
 
+        }
+
+        private void DataGridRow_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            // Implémentez ici le comportement souhaité lors du clic sur une ligne du DataGrid
+            // Par exemple, vous pouvez récupérer la ligne sélectionnée :
+            // var row = (DataGridRow)sender;
+            // var item = row.Item;
         }
     }
 }
