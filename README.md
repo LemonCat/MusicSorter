@@ -1,75 +1,74 @@
-# MusicSorter
+ï»¿# MusicSorter
 
-Résumé (français)
+RÃ©sumÃ© (franÃ§ais)
 -----------------
-MusicSorter est une petite application WPF (.NET 8) qui scanne un dossier source contenant des fichiers audio et prépare leur classement dans un dossier cible en se basant sur les tags (AlbumArtist / Performers, Album, Title, Track, Disc, Year). Elle peut soit copier soit déplacer les fichiers vers la nouvelle arborescence. Les opérations sont planifiées après un scan — l'utilisateur peut ensuite appliquer ou annuler.
+MusicSorter est une petite application WPF (.NET 8) qui scanne un dossier source contenant des fichiers audio et prÃ©pare leur classement dans un dossier cible en se basant sur les tags (AlbumArtist / Performers, Album, Title, Track, Disc, Year). Elle peut soit copier soit dÃ©placer les fichiers vers la nouvelle arborescence. Les opÃ©rations sont planifiÃ©es aprÃ¨s un scan â€” l'utilisateur peut ensuite appliquer ou annuler.
 
-Fonctionnalités principales
+FonctionnalitÃ©s principales
 ---------------------------
-- Scan récursif du dossier source pour détecter fichiers audio (extensions reconnues : .mp3, .flac, .ogg, .m4a, .aac, .wav, .wma).
+- Scan rÃ©cursif du dossier source pour dÃ©tecter fichiers audio (extensions reconnues : `.mp3`, `.flac`, `.ogg`, `.m4a`, `.aac`, `.wav`, `.wma`).
 - Calcul d'un chemin cible par fichier en fonction des tags :
-  - Par défaut : `TargetRoot\<Artist>\<Album>\<DD>-<Track> - <Title>.<ext>`
+  - Par dÃ©faut : `TargetRoot\<Artist>\<Album>\<DD>-<Track> - <Title>.<ext>`
   - Si l'album est manquant : `TargetRoot\<Artist>\<DD>-<Track> - <Title>.<ext>`
   - Si l'artiste est 'Various' (VA/compilation) : `TargetRoot\<Album>\<DD>-<Track> - <Title>.<ext>`
-- Gestion des fichiers sidecar (images, .cue, .log, .m3u, .txt, etc.) : associés au dossier album calculé.
-- Possibilité de déplacer (Move) ou copier (Copy) les fichiers.
-- Détection et gestion d'erreurs :
-  - Lignes marquées "PROBLÈME" si un fichier audio du dossier est bloquant.
-  - Écriture de fichiers `.pb.txt` contenant le rapport d'erreur pour les fichiers/dossiers problématiques.
-- Résumé visible après opérations : total / ok / dossiers problème / done / failed.
+- Gestion des fichiers sidecar (images, `.cue`, `.log`, `.m3u`, `.txt`, etc.) : associÃ©s au dossier album calculÃ©.
+- PossibilitÃ© de dÃ©placer (`Move`) ou copier (`Copy`) les fichiers.
+- DÃ©tection et gestion d'erreurs :
+  - Lignes marquÃ©es `PROBLÃˆME` si un fichier audio du dossier est bloquant.
+  - Ã‰criture de fichiers `.pb.txt` contenant le rapport d'erreur pour les fichiers/dossiers problÃ©matiques.
+- RÃ©sumÃ© visible aprÃ¨s opÃ©rations : total / ok / dossiers problÃ¨me / done / failed.
 
-Règles de nommage et nettoyage (sanitize)
+RÃ¨gles de nommage et nettoyage (sanitize)
 -----------------------------------------
-Lors de la génération des noms de fichiers et dossiers, l'application supprime automatiquement (sans remplacement) les caractères et séquences suivants :
-- Caractères interdits explicitement : `< > : " / \ | ? *` et la puce `•`
-- Tabulation, saut de ligne, retour chariot (`\t`, `\n`, `\r`)
-- Séquences invisibles problématiques communes : U+200B (ZERO WIDTH SPACE), U+FEFF (BOM), U+200E/U+200F, U+2060, et NBSP (`\u00A0`)
-- Les espaces et points finals sont retirés (trim de fin de nom)
-- Si d'autres caractères invalides subsistent (selon `Path.GetInvalidFileNameChars()`), l'application renvoie une raison `INVALID_CHARS` et remplace ces caractères restants par `_` pour produire une valeur utilisable.
-- Si le nom devient vide après nettoyage, la valeur `Unknown` est utilisée et le code d'erreur correspondant est renvoyé (`EMPTY_AFTER_SANITIZE` ou `EMPTY_VALUE`).
+Lors de la gÃ©nÃ©ration des noms de fichiers et dossiers, l'application applique la politique suivante :
 
-Comportement pour dossiers problèmes
-------------------------------------
-- Si au moins un fichier audio d'un dossier source pose un problème (tag manquant ou erreur de lecture), tout le dossier source est marqué comme `PlannedProblemFolder`.
-- Le dossier problème est copié/déplacé sous `TargetRoot\_PROBLEMES\<sanitized source folder name>\...`.
-- Pour chaque fichier audio problématique, un fichier `<filename>.pb.txt` contenant le rapport (tags observés, exception, etc.) est écrit à côté du fichier dans le dossier déplacé/copied.
+1. Suppression silencieuse (sans erreur) des caractÃ¨res listÃ©s ciâ€‘dessous â€” ces caractÃ¨res sont simplement retirÃ©s des noms :
+   - `<` `>` `:` `"` `/` `\` `|` `?` `*`
 
-Codes d'erreur et diagnostics
------------------------------
-- Exemples : `MISSING_TAG:ARTIST`, `MISSING_TAG:TITLE`, `MISSING_TAG:TRACK_NUMBER`, `TARGET_PATH_TOO_LONG:<len>`, `ARTIST:INVALID_CHARS`, `ALBUM:RESERVED_NAME`, `UNEXPECTED_EXCEPTION:<Type>`
-- Les rapports complets sont écrits dans les `.pb.txt` pour faciliter le débogage.
+2. Suppression silencieuse des caractÃ¨res et sÃ©quences problÃ©matiques invisibles :
+   - Tabulation, saut de ligne et retour chariot (`\t`, `\n`, `\r`)
+   - SÃ©quences invisibles communes : U+200B (ZERO WIDTH SPACE), U+FEFF (BOM), U+200E/U+200F, U+2060, NBSP (`\u00A0`)
 
-Dépendances & exigences
------------------------
-- .NET 8
-- TagLib# (utilisé pour lire les tags audio)
-- Solution/Projet prévu pour être ouvert dans Visual Studio 2022 ou construit avec `dotnet build`.
+3. Trim des espaces et points en fin de nom (Windows nâ€™accepte pas nom se terminant par un espace/point).
+
+4. Si, aprÃ¨s suppression des Ã©lÃ©ments ciâ€‘dessus, il reste d'autres caractÃ¨res invalides selon `Path.GetInvalidFileNameChars()` :
+   - Lâ€™application signale la raison `INVALID_CHARS`.
+   - Pour produire un nom utilisable, ces caractÃ¨res restants sont remplacÃ©s par `_` (underscore) â€” la raison est conservÃ©e dans la ligne de log (`PbReason`) et dans les rapports `.pb.txt`.
+
+5. Si le nom devient vide aprÃ¨s nettoyage, la valeur `Unknown` est utilisÃ©e et le code d'erreur correspondant est renvoyÃ© (`EMPTY_AFTER_SANITIZE` ou `EMPTY_VALUE`).
+
+6. Les noms rÃ©servÃ©s Windows (`CON`, `PRN`, `AUX`, `NUL`, `COM1`..`COM9`, `LPT1`..`LPT9`) sont dÃ©tectÃ©s et modifiÃ©s (prÃ©fixÃ©s/suffixÃ©s) pour Ã©viter les collisions.
+
+Remarques et sÃ©curitÃ©
+--------------------
+- Le comportement ciâ€‘dessous garantit que les caractÃ¨res que vous avez listÃ©s sont seulement retirÃ©s (pas transformÃ©s en underscore) pour produire des chemins plus lisibles tout en restant valides sous Windows.
+- Tout autre caractÃ¨re rÃ©ellement interdit reste traitÃ© comme une erreur (raison `INVALID_CHARS`) et est neutralisÃ© par remplacement (`_`) pour permettre l'Ã©criture du fichier/dossier.
+- Tester sur un petit jeu de fichiers avant traitement massif est fortement recommandÃ© (voir la section *Utilisation rapide*).
+- En cas d'erreur d'I/O lors d'`Apply`, des fichiers `.pb.txt` sont crÃ©Ã©s Ã  cÃ´tÃ© des sources ou dans le dossier `_PROBLEMES` pour diagnostiquer.
 
 Utilisation rapide
 ------------------
 1. Lancer l'application.
-2. Choisir un dossier Source et un dossier Target existants.
-3. Cliquer sur "Scan" — l'application liste les opérations planifiées.
-4. Vérifier les lignes (OK / PROBLÈME).
-5. Cliquer sur "Apply" pour effectuer les opérations (copie ou déplacement selon l'option).
-6. En cas d'erreur d'I/O, des fichiers `.pb.txt` sont créés à côté des fichiers sources et/ou dans les dossiers problèmes.
+2. Choisir un dossier `Source` et un dossier `Target` existants.
+3. Cliquer sur `Scan` â€” l'application liste les opÃ©rations planifiÃ©es.
+4. VÃ©rifier les lignes (`OK` / `PROBLÃˆME`).
+5. Cliquer sur `Apply` pour effectuer les opÃ©rations (copie ou dÃ©placement).
+6. En cas d'erreur d'I/O, consulter les `.pb.txt` gÃ©nÃ©rÃ©s.
 
-Notes importantes
------------------
-- L'application vérifie la longueur du chemin final et signale `TARGET_PATH_TOO_LONG` si elle dépasse la limite souple (paramètre `TargetPathSoftMax`).
-- Les noms réservés Windows (`CON`, `PRN`, `AUX`, `NUL`, `COM1`..`COM9`, `LPT1`..`LPT9`) sont détectés et modifiés (préfixés/suffixés) pour éviter les collisions.
-- Le comportement exact pour les artistes "Various" est maintenu : l'album devient le dossier principal pour ces cas.
-- Les opérations sont exécutées avec des protections : journalisation des erreurs et création de rapports `.pb.txt`. L'annulation est possible via le bouton Stop (CancellationToken).
+DÃ©pendances & exigences
+-----------------------
+- .NET 8
+- TagLib# (utilisÃ© pour lire les tags audio)
 
 Contribuer
 ---------
-- Forker/Cloner le dépôt.
+- Forker/Cloner le dÃ©pÃ´t.
 - Ouvrir la solution dans __Visual Studio 2022__ ou utiliser `dotnet build`.
-- Tests manuels recommandés sur un petit jeu de fichiers avant traitement massif.
+- Tests manuels recommandÃ©s sur un petit jeu de fichiers avant traitement massif.
 
 Licence
 -------
-- (À renseigner selon ton projet — par défaut indiquer la licence de ton choix.)
+- (Ã€ renseigner selon ton projet â€” par dÃ©faut indiquer la licence de ton choix.)
 
 Contact
 -------
